@@ -22,6 +22,12 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# 创建工作目录
+WORKDIR /workspace
+
+# 复制整个项目到容器中
+COPY . /workspace/
+
 # 安装本地的 mineru[core] 包
 RUN python3 -m pip install -e ".[core]" -i https://mirrors.aliyun.com/pypi/simple --break-system-packages && \
     python3 -m pip cache purge
