@@ -23,6 +23,7 @@ from mineru.version import __version__
 
 app = FastAPI()
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+from markitdown import MarkItDown
 
 
 def sanitize_filename(filename: str) -> str:
@@ -58,6 +59,52 @@ def get_infer_result(file_suffix_identifier: str, pdf_name: str, parse_dir: str)
         with open(result_file_path, "r", encoding="utf-8") as fp:
             return fp.read()
     return None
+
+
+@app.post(path="/parse_file", )
+async def parse_file(
+        file: UploadFile = File(...),
+        output_dir: str = Form("./output")
+):
+    file_path = None
+    try:
+        # 创建输出目录
+        os.makedirs(output_dir, exist_ok=True)
+
+        # 读取上传的文件内容
+        content = await file.read()
+
+        # 构建文件保存路径
+        file_path = Path(output_dir) / file.filename
+
+        # 将文件写入到指定目录
+        with open(file_path, "wb") as f:
+            f.write(content)
+
+        md = MarkItDown(enable_plugins=False)  # Set to True to enable plugins
+        result = md.convert(file_path, keep_data_uris=True)
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "result": result.text_content,
+                "file_path": str(file_path),
+                "filename": file.filename
+            }
+        )
+    except Exception as e:
+        logger.exception(e)
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to save file: {str(e)}"}
+        )
+    finally:
+        # 处理完成后删除文件
+        if file_path and os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception as e:
+                logger.warning(f"Failed to delete file {file_path}: {e}")
 
 
 @app.post(path="/file_parse",)
